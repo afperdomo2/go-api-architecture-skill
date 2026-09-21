@@ -12,7 +12,7 @@ de liveness/readiness, buenas prácticas de Docker/Compose en producción, y gen
 Con el CLI de [skills.sh](https://skills.sh):
 
 ```bash
-npx skills add <tu-usuario>/go-api-architecture-skill
+npx skills add afperdomo2/go-api-architecture-skill
 ```
 
 Esto la instala y configura automáticamente para tu agente (Claude Code, Cursor, Copilot,
