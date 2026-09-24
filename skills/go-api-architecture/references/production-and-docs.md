@@ -41,6 +41,61 @@ Dos endpoints separados, con semántica distinta:
   repo, o secret manager del proveedor.
 - Multi-stage build para que la imagen final no incluya el toolchain de Go.
 
+## Migraciones de base de datos en producción
+
+Las migraciones son un paso de **despliegue**, no de arranque de la aplicación. En
+producción se ejecutan con `golang-migrate/migrate` como SQL versionado (ver
+`stack-and-structure.md`); `AutoMigrate` de GORM está prohibido en producción.
+
+**Cómo se ejecuta el paso de migración:**
+
+- Como step explícito de CI/CD o job de contenedor separado (ej. servicio `migrate` en
+  `compose.prod.yml` o `initContainer` si usas Kubernetes), ejecutado **antes** del rollout y
+  con salida bloqueante si falla.
+- Nunca en el `CMD` de la app: dos réplicas arrancando a la vez intentarían migrar en
+  paralelo. Si se usa job de contenedor, limitarlo a una sola replica (`deploy.replicas: 1`).
+- La versión de la imagen del job de migración debe ser la misma del release que se despliega
+  (mismas migraciones), para evitar aplicar el esquema de una versión distinta.
+
+**Comandos core de `golang-migrate`:**
+
+```bash
+# Aplicar todas las migraciones pendientes
+migrate -path migrations -database "$DATABASE_URL" up
+
+# Revertir la última migración (rollback manual/incidente)
+migrate -path migrations -database "$DATABASE_URL" down 1
+
+# Estado actual (versión aplicada y si hay draft/migraciones sin aplicar)
+migrate -path migrations -database "$DATABASE_URL" version
+
+# Forzar una versión marcada como "sucia" por un fallo parcial
+migrate -path migrations -database "$DATABASE_URL" force N
+```
+
+`DATABASE_URL` viene de los secrets del entorno, nunca del repo. El `AGENTS.md` debe listar
+estos comandos para que el agente no los invente.
+
+**Prácticas seguras:**
+
+- Migraciones **aditivas primero** (patrón *expand/contract*): crear columnas/tablas en un
+  release, backfillear datos con `UPDATE` en la misma o siguiente migración, y recién en un
+  release posterior eliminar/deprecar lo viejo. Nunca `DROP COLUMN`/`DROP TABLE` en el mismo
+  release que escribe el nuevo esquema.
+- Usar `IF NOT EXISTS`/`IF EXISTS` y transacciones explícitas (`BEGIN`/`COMMIT`, o los
+  separadores `-- +migrate Up`/`-- +migrate Down` de golang-migrate) cuando la migración lo
+  permita.
+- No editar migraciones ya aplicadas en un entorno: crear una migración nueva que corrija.
+  El historial versionado es inmutable una vez aplicado.
+- `golang-migrate` usa advisory lock de Postgres: el `up` se serializa solo, pero igual no
+  lanzar dos migradores a la vez; el lock evita corrupción, no la confusión operativa.
+- Verificar tras el release con `migrate ... version` y chequear que el readiness del app
+  valide el esquema esperado (no solo que la DB responde `Ping`).
+
+**Rollback:** las migraciones no son el mecanismo de rollback del código. Si el release falla,
+se revierte el despliegue de la app y, si fue una migración destructiva/fallida, se corrige con
+`down 1` o una migración nueva que restituya — nunca con edición retroactiva de archivos.
+
 ## Testing
 
 - Tests unitarios de `service.go` con mocks del repositorio.
