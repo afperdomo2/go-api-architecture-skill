@@ -104,3 +104,33 @@ explícito).
   detectar ráfagas de queries repetidas por endpoint.
 - Endpoints de listados con relaciones llevan test de integración que valida también el número
   de queries ejecutadas (ver `references/production-and-docs.md`).
+
+## Filtros booleanos y valores cero en GORM
+
+- `Where` con **struct ignora los valores cero** (`false`, `0`, `""`, `nil`): 
+  `db.Where(&User{Active: false})` **no** genera `active = false`, así que un filtro tipo
+  `?active=false` devuelve toda la colección sin filtrar.
+- Para booleanos y cualquier filtro cuyo valor pueda ser cero, usar **map** (que incluye todas
+  sus claves) o **condición explícita**:
+
+```go
+db.Where(map[string]any{"active": false}) // ... WHERE active = false
+// o
+db.Where("active = ?", false)
+```
+
+- **Patrón completo**: el handler trae el booleano como `*bool` (ver
+  `references/security-and-endpoints.md`, sección "Filtros booleanos en query params"). En el
+  repository se arma un `map[string]any` con **solo las claves presentes** — añadir `"active"`
+  únicamente si `q.Active != nil` — y se pasa a `db.Where(filters)`:
+
+```go
+filters := map[string]any{}
+if q.Active != nil {
+    filters["active"] = *q.Active
+}
+db.Where(filters).Find(&users)
+```
+
+- Los endpoints de listado con filtro booleano llevan test de integración obligatorio que
+  verifica que `?active=false` filtra de verdad y no devuelve la colección completa.

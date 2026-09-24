@@ -31,3 +31,27 @@
 - **Filtros y ordenamiento estándar**: `?sort=-created_at&status=active`.
 - Documentación Swagger obligatoria por endpoint (`@Summary`, `@Param`, `@Success`, `@Failure`
   en comentarios de `swaggo`).
+
+### Filtros booleanos en query params
+
+- Nunca `c.Query("active")` a secas ni `strconv.ParseBool` ignorando el error:
+  `c.Query` devuelve `""` tanto si el param **falta** como si está vacío, y `ParseBool("")`
+  falla → un param ausente se convierte silenciosamente en `false` y filtras mal.
+- Para distinguir "no enviado" de `false`, bindear a un struct de filtros con `*bool`
+  (tag `form:"active"`): si el param no viene queda `nil`; si viene `?active=false`, queda
+  `false`.
+
+```go
+type ListUsersQuery struct {
+    Active *bool `form:"active"`
+    Page   int   `form:"page"`
+}
+
+var q ListUsersQuery
+if err := c.ShouldBindQuery(&q); err != nil {
+    // 422 con el envelope de error estándar
+}
+```
+
+- Pasar ese `*bool` al repository, que lo convierte en condición de GORM (ver
+  `references/stack-and-structure.md`, sección "Filtros booleanos y valores cero en GORM").
