@@ -1,7 +1,7 @@
 # go-api-architecture-skill
 
 Skill de Agent Skills (formato universal `SKILL.md`) que define el estándar de arquitectura
-para construir APIs REST profesionales en Go: stack (Gin/GORM o net/http ligero), estructura de
+para construir APIs REST profesionales en Go: stack (Gin + GORM), estructura de
 carpetas modular, respuestas estandarizadas (RFC 9457), prevención de N+1, seguridad,
 documentación Swagger, testing (unitario y con `testcontainers-go`), graceful shutdown, probes
 de liveness/readiness, buenas prácticas de Docker/Compose en producción, y generación de

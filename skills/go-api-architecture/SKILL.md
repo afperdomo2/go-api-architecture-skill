@@ -1,6 +1,6 @@
 ---
 name: go-api-architecture
-description: Define y ejecuta la arquitectura estándar para construir APIs REST profesionales en Go (Gin/GORM o net/http ligero), incluyendo stack tecnológico, estructura de carpetas modular, estandarización de respuestas (RFC 9457), prevención de N+1, seguridad (fuerza bruta, sanitización), Swagger, testing (unitario y con testcontainers-go), graceful shutdown, probes de liveness/readiness, buenas prácticas de Docker/Compose en producción, y generación de AGENTS.md/ARCHITECTURE.md. Úsala SIEMPRE que el usuario vaya a crear, iniciar, o diseñar la arquitectura de una API REST nueva en Go, o pida "estándar para API en Go", "arquitectura Go API", "estructura de proyecto Go", o mencione montar un backend/microservicio en Go desde cero.
+description: Define y ejecuta la arquitectura estándar para construir APIs REST profesionales en Go (Gin + GORM), incluyendo stack tecnológico, estructura de carpetas modular, estandarización de respuestas (RFC 9457), prevención de N+1, seguridad (fuerza bruta, sanitización), Swagger, testing (unitario y con testcontainers-go), graceful shutdown, probes de liveness/readiness, buenas prácticas de Docker/Compose en producción, y generación de AGENTS.md/ARCHITECTURE.md. Úsala SIEMPRE que el usuario vaya a crear, iniciar, o diseñar la arquitectura de una API REST nueva en Go, o pida "estándar para API en Go", "arquitectura Go API", "estructura de proyecto Go", o mencione montar un backend/microservicio en Go desde cero.
 ---
 
 # Arquitecto/Desarrollador Senior de APIs REST en Go
@@ -13,26 +13,18 @@ plazo. Cuando haya trade-offs, explícitalos antes de decidir.
 ## 0. Preguntas de calibración (SIEMPRE antes de generar nada)
 
 1. **Nombre del proyecto / dominio de negocio.**
-2. **Tamaño esperado**: `LIGERO` (microservicio pequeño, pocos endpoints) / `ESTÁNDAR` (CRUD +
-   reglas + auth + relaciones) / `COMPLEJO` (múltiples dominios).
+2. **Tamaño esperado**: `ESTÁNDAR` (CRUD + reglas + auth + relaciones) / `COMPLEJO` (múltiples
+   dominios).
 3. **¿Autenticación de usuarios?** (JWT propio, OAuth, ninguna).
 4. **¿Consume/es consumida por un frontend específico?** (afecta CORS y formato de respuesta).
 5. **¿DB existente o desde cero?** (afecta cómo se migran).
 6. **¿Quieres pruebas de integración con contenedores efímeros (`testcontainers-go`)?** Si es
    sí, se aplican SOLO a procesos críticos que tocan DB (auth, pagos, reglas de negocio
-   complejas) — nunca a CRUDs simples. Ver `references/testing-and-docs.md`.
+   complejas) — nunca a CRUDs simples. Ver `references/production-and-docs.md`.
 
-**Regla de decisión por tamaño** (si el usuario no tiene preferencia):
-
-| Aspecto | LIGERO | ESTÁNDAR / COMPLEJO |
-|---|---|---|
-| Router | `net/http` + `chi` | **Gin** |
-| Acceso a datos | `database/sql` + `sqlx` | **GORM** |
-| Documentación | Opcional | **Swagger obligatorio** |
-| Rate limiting | Middleware en memoria | Middleware + Redis |
-| Estructura | Plana | Modular por feature en `internal/` |
-
-Por defecto, salvo `LIGERO` explícito, usa **Gin + GORM**.
+El stack es **fijo: Gin + GORM** (no hay variante ligera). Swagger obligatorio, rate limiting con
+`ulule/limiter` (memoria o Redis según escala) y estructura modular por feature en `internal/`
+(ver `references/stack-and-structure.md`).
 
 ## 1. Dónde está cada cosa
 

@@ -1,6 +1,6 @@
 # Stack, respuestas estandarizadas y estructura de carpetas
 
-## Stack tecnológico estándar (proyecto ESTÁNDAR/COMPLEJO)
+## Stack tecnológico estándar
 
 - **Framework HTTP:** Gin (`gin-gonic/gin`)
 - **ORM:** GORM (`gorm.io/gorm`) + driver `gorm.io/driver/postgres`

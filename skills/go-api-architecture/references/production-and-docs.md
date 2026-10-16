@@ -102,6 +102,19 @@ se revierte el despliegue de la app y, si fue una migración destructiva/fallida
 - Tests de integración de endpoints críticos con `httptest`.
 - Makefile con target `make test`.
 
+### Convenciones de archivos y naming
+
+`go test` obliga a que los tests vivan en `*_test.go` dentro del mismo directorio que el código
+probado, así que la convención es co-locación en el módulo (no hay carpeta `test/` aparte):
+
+- **Nombre:** `<archivo>_test.go` para unitarios (`service_test.go`, `handler_test.go`).
+- **Integración:** `<feature>_integration_test.go`, aislados con `testing.Short()` (se saltan con
+  `go test -short`, que es lo que corre el ciclo normal). No combinar con build tags.
+- **Package de test:** `package <modulo>_test` (black-box) por defecto; `package <modulo>` solo
+  cuando el test necesite símbolos no exportados.
+- **Mocks:** `testify/mock` (ya está en el stack, sin dependencias nuevas), definidos en un
+  `mocks_test.go` dentro del paquete de test del módulo; los `_test.go` no entran al binario.
+
 ### Contenedores efímeros (`testcontainers-go`)
 
 Uso condicionado a la respuesta de la pregunta 6 del SKILL.md. Librería:
@@ -113,8 +126,79 @@ Uso condicionado a la respuesta de la pregunta 6 del SKILL.md. Librería:
 - CRUDs simples se quedan con tests unitarios + mocks.
 
 **Flujo:** levanta un contenedor real de Postgres → corre migraciones → ejecuta el
-repositorio/servicio real contra esa DB → destruye el contenedor al terminar
-(`defer container.Terminate(ctx)`). Requiere Docker disponible en la máquina/CI.
+repositorio/servicio real contra esa DB → destruye el contenedor al terminar con
+`testcontainers.CleanupContainer(t, ctr)`. Esa es la forma recomendada actual: se apoya en
+`t.Cleanup` y tolera `nil`, por eso puede registrarse antes de comprobar errores. Requiere
+Docker disponible en la máquina/CI (Ryuk actúa como red de seguridad si algo quedara colgado).
+
+### Ejemplo canónico
+
+Tests de integración **por test** (simple y estable). Aplica solo a los procesos críticos
+definidos arriba; si el volumen de tests crece y arrancar un contenedor por test se vuelve
+lento, evalúa arrancar uno solo desde `TestMain`. La reutilización entre tests con
+`WithReuseByName` es experimental y no se recomienda como base.
+
+```go
+// internal/auth/auth_integration_test.go
+package auth_test
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/modules/postgres"
+	"gorm.io/driver/postgres" // mismo driver que usa la app
+	"gorm.io/gorm"
+)
+
+// setupDB levanta un Postgres real, aplica migraciones y devuelve la *gorm.DB lista.
+// Se usa en tests de procesos críticos (auth, pagos), NUNCA en CRUDs simples.
+func setupDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("test de integración: omitido con -short")
+	}
+
+	ctx := context.Background()
+	ctr, err := postgres.Run(ctx, "postgres:16-alpine",
+		postgres.WithDatabase("app_test"),
+		postgres.WithUsername("test"),
+		postgres.WithPassword("test"),
+		postgres.BasicWaitStrategies(),
+	)
+	if err != nil {
+		t.Fatalf("no se pudo levantar postgres: %v", err)
+	}
+	// Se registra el cleanup ANTES de comprobar errores: CleanupContainer tolera nil.
+	testcontainers.CleanupContainer(t, ctr)
+
+	connStr, err := ctr.ConnectionString(ctx, "sslmode=disable")
+	if err != nil {
+		t.Fatalf("connection string: %v", err)
+	}
+
+	db, err := gorm.Open(postgres.Open(connStr), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("gorm.Open: %v", err)
+	}
+	if err := runMigrations(db); err != nil { // runner/carpeta de migraciones real del proyecto
+		t.Fatalf("migraciones: %v", err)
+	}
+	return db
+}
+
+func TestLogin_CredencialesInvalidas(t *testing.T) {
+	db := setupDB(t)
+	svc := NewService(NewRepository(db)) // servicio REAL, no mock
+
+	_, err := svc.Login(context.Background(), "noexiste@test.com", "mala")
+	if !errors.Is(err, ErrCredencialesInvalidas) {
+		t.Fatalf("se esperaba ErrCredencialesInvalidas, got %v", err)
+	}
+}
+```
 
 ## Generación de AGENTS.md y ARCHITECTURE.md
 
