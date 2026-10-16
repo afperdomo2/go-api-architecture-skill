@@ -1,6 +1,6 @@
 ---
 name: go-api-architecture
-description: Define y ejecuta la arquitectura estándar para construir APIs REST profesionales en Go (Gin + GORM), incluyendo stack tecnológico, estructura de carpetas modular, estandarización de respuestas (RFC 9457), prevención de N+1, seguridad (fuerza bruta, sanitización), Swagger, testing (unitario y con testcontainers-go), graceful shutdown, probes de liveness/readiness, buenas prácticas de Docker/Compose en producción, y generación de AGENTS.md/ARCHITECTURE.md. Úsala SIEMPRE que el usuario vaya a crear, iniciar, o diseñar la arquitectura de una API REST nueva en Go, o pida "estándar para API en Go", "arquitectura Go API", "estructura de proyecto Go", o mencione montar un backend/microservicio en Go desde cero.
+description: Define y ejecuta la arquitectura estándar para construir APIs REST profesionales en Go (Gin + GORM), incluyendo stack tecnológico, estructura de carpetas modular, estandarización de respuestas (RFC 9457), prevención de N+1, performance y resiliencia (pool de conexiones, timeouts, idempotencia, concurrencia, transacciones), observabilidad (logs y métricas; niveles desde docker logs hasta Grafana), seguridad (fuerza bruta, sanitización), Swagger, testing (unitario y con testcontainers-go), graceful shutdown, probes de liveness/readiness, buenas prácticas de Docker/Compose en producción, y generación de AGENTS.md/ARCHITECTURE.md. Úsala SIEMPRE que el usuario vaya a crear, iniciar, o diseñar la arquitectura de una API REST nueva en Go, o pida "estándar para API en Go", "arquitectura Go API", "estructura de proyecto Go", o mencione montar un backend/microservicio en Go desde cero.
 ---
 
 # Arquitecto/Desarrollador Senior de APIs REST en Go
@@ -21,6 +21,14 @@ plazo. Cuando haya trade-offs, explícitalos antes de decidir.
 6. **¿Quieres pruebas de integración con contenedores efímeros (`testcontainers-go`)?** Si es
    sí, se aplican SOLO a procesos críticos que tocan DB (auth, pagos, reglas de negocio
    complejas) — nunca a CRUDs simples. Ver `references/production-and-docs.md`.
+7. **Observabilidad**: ¿cómo quieres ver qué pasa con la API?
+   - `NINGUNA` — solo logs en stdout (`docker logs` / Dokploy). 0 MB extra.
+   - `LIGERA` — uptime + alertas con Uptime Kuma. ~150 MB en el VPS.
+   - `CLOUD` — dashboards en Grafana Cloud, sin contenedores en el VPS. ~0 MB.
+   - `COMPLETA` — Grafana + Prometheus + Loki self-hosted. 1-2 GB.
+   Si no hay preferencia: `LIGERA` para VPS chico o proyecto personal; `CLOUD` si quieres
+   dashboards sin gastar RAM; `COMPLETA` solo en un server con holgura. Ver
+   `references/observability-and-ci.md`.
 
 El stack es **fijo: Gin + GORM** (no hay variante ligera). Swagger obligatorio, rate limiting con
 `ulule/limiter` (memoria o Redis según escala) y estructura modular por feature en `internal/`
@@ -39,6 +47,10 @@ de una vez:
 - `references/production-and-docs.md` — graceful shutdown, liveness/readiness probes, buenas
   prácticas de Docker/Compose en producción, testing (unitario + testcontainers-go), y cómo
   generar `AGENTS.md`/`ARCHITECTURE.md` al final del proyecto.
+- `references/performance-and-resilience.md` — pool de conexiones, timeouts, idempotencia,
+  transacciones y concurrencia, reintentos, caché, índices y paginación keyset.
+- `references/observability-and-ci.md` — los tres pilares, niveles de observabilidad (Uptime
+  Kuma / Grafana Cloud / stack LGTM), golden signals y pipeline de CI.
 
 ## 2. Orden de ejecución
 
@@ -54,10 +66,15 @@ de una vez:
    producción (ver la sección "Migraciones de base de datos"). Además, añade en el `Makefile` los
    targets de conveniencia **local/dev** (`make migrate-up`, `make migrate-down`,
    `make migrate-version`); en producción las migraciones van por CI/CD, no por el `Makefile`.
-6. Genera la primera migración SQL y el `main.go`.
-7. Genera `AGENTS.md` y `ARCHITECTURE.md` (ver la última sección de
+6. Lee `references/performance-and-resilience.md` y aplica pool de conexiones, timeouts (HTTP,
+   context→DB, cliente saliente) e idempotencia en los endpoints críticos.
+7. Lee `references/observability-and-ci.md` y aplica el nivel de observabilidad elegido: logs +
+   `/health` + `/ready` siempre; métricas desde `LIGERA`; overlay `compose.observability.yml` solo
+   para `COMPLETA`.
+8. Genera la primera migración SQL y el `main.go`.
+9. Genera `AGENTS.md` y `ARCHITECTURE.md` (ver la última sección de
    `references/production-and-docs.md`).
-8. Al final, entrega un checklist de lo que falta por implementar.
+10. Al final, entrega un checklist de lo que falta por implementar.
 
 No te desvíes de las decisiones definidas en los archivos de referencia salvo que el usuario lo
 pida explícitamente.

@@ -92,6 +92,19 @@ Modelo de datos: struct único por entidad ("Opción A") con tags GORM/json/vali
 struct, salvo que el request/response necesite forma distinta al modelo de dominio (ahí sí DTO
 explícito).
 
+## Convenciones de modelado
+
+- **Clave primaria**: `UUID v7` por defecto (`github.com/google/uuid` → `uuid.NewV7()`): ordenable
+  por tiempo, no revela el volumen de datos ni permite enumerar recursos. Alternativa
+  `BIGSERIAL` para tablas internas de alto volumen donde el tamaño importa.
+- **Timestamps**: `created_at` y `updated_at` en toda entidad (GORM los autogestiona).
+- **Soft delete**: `gorm.DeletedAt` solo si necesitas conservar registros borrados; si no, borrado
+  físico. Un soft delete "invisible" complica los `UNIQUE` (un email borrado sigue ocupando la
+  clave) — decídelo a consciencia.
+- **Optimistic locking**: columna `version` en recursos editables por varios usuarios (ver
+  `references/performance-and-resilience.md`).
+- **Naming**: tablas y columnas en `snake_case`, tablas en plural.
+
 ## Prevención de consultas N+1
 
 - Usar `.Preload("Relacion")` (o anidado, `.Preload("Orders.Items")`) en vez de acceder a la

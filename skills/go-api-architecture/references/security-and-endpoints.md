@@ -17,6 +17,13 @@
 - **CORS**: whitelist explícita de orígenes (nunca `*` en producción si hay auth con cookies).
 - **Passwords**: `bcrypt` con cost ≥ 12, nunca loggear passwords ni tokens.
 - **JWT**: expiración corta en access token (ej. 15 min) + refresh token con rotación.
+- **JWT — algoritmo**: fija el algoritmo esperado al validar (`HS256`/`RS256`) y **rechaza
+  `alg: none`** y el cambio de algoritmo (algorithm confusion). Nunca confíes en el `alg` del
+  header sin whitelist.
+- **CSRF**: si la auth usa **cookies**, añade protección CSRF (token double-submit o
+  `SameSite=Strict/Lax`). Con JWT en `Authorization` no aplica.
+- **Límite de tamaño de request**: rechaza bodies gigantes (`http.MaxBytesReader` o el límite de
+  Gin) para evitar agotamiento de memoria/DoS.
 - **Secrets**: nunca en el repo; siempre por variables de entorno / secret manager.
 
 ## Estandarización de endpoints

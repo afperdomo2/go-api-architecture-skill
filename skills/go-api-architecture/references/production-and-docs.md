@@ -236,7 +236,7 @@ ser corto y operativo, no un documento de arquitectura completo.
 
 ### `AGENTS.md` (raíz) — operativo
 
-- Comandos: instalar, correr, testear, migrar, generar Swagger.
+- Comandos: instalar, correr, testear, migrar, generar Swagger, observabilidad (`make obs-up`) y CI.
 - Convenciones de código (`gofmt`/`golangci-lint`).
 - Reglas de dónde va cada cosa (ej. "handler nunca llama a GORM directo").
 - Restricciones explícitas (qué no tocar sin confirmar).
@@ -250,6 +250,8 @@ ser corto y operativo, no un documento de arquitectura completo.
 - Convenciones de respuesta/errores con ejemplo real del proyecto.
 - Reglas de seguridad activas (dónde vive el middleware de auth, rate limiting configurado).
 - Política de N+1 (dónde está el logger de GORM activado).
+- Configuración del pool de conexiones (valores) y timeouts aplicados.
+- Nivel de observabilidad elegido y dónde mirar (logs / métricas / alertas).
 - Política de testing (qué módulos tienen `testcontainers-go` y por qué).
 - Graceful shutdown y probes implementados en este proyecto.
 - Diferencias entre `compose.yml` y `compose.prod.yml`, manejo de secrets.
