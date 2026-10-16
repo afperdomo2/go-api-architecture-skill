@@ -4,9 +4,9 @@
 
 - **Framework HTTP:** Gin (`gin-gonic/gin`)
 - **ORM:** GORM (`gorm.io/gorm`) + driver `gorm.io/driver/postgres`
-- **Migraciones:** `golang-migrate/migrate` (SQL versionado; `AutoMigrate` de GORM solo en
-  local/dev, nunca en producción). Ver el flujo de ejecución en producción en
-  `references/production-and-docs.md`.
+- **Migraciones:** `golang-migrate/migrate` (SQL versionado) es la **única fuente de verdad del
+  esquema**, en dev y en producción. `AutoMigrate` de GORM no se usa (solo tolerado en prototipos
+  desechables, nunca commiteado). Ver `references/production-and-docs.md`.
 - **Validación de entrada:** `go-playground/validator/v10` vía binding de Gin
 - **Documentación:** `swaggo/swag` + `gin-swagger` → `/swagger/index.html`
 - **Autenticación:** JWT con `golang-jwt/jwt/v5`, refresh tokens, passwords con `bcrypt`

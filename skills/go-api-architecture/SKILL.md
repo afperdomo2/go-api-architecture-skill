@@ -51,8 +51,9 @@ de una vez:
    completo (handler + service + repository + model).
 5. Lee `references/production-and-docs.md` y genera `Dockerfile`, `compose.yml`, `Makefile`,
    con graceful shutdown y probes ya implementados. Incluye el job/paso de migraciones de
-   producción (ver la sección "Migraciones de base de datos en producción") y sus targets en el
-   `Makefile` (`make migrate-up`, `make migrate-down`, `make migrate-version`).
+   producción (ver la sección "Migraciones de base de datos"). Además, añade en el `Makefile` los
+   targets de conveniencia **local/dev** (`make migrate-up`, `make migrate-down`,
+   `make migrate-version`); en producción las migraciones van por CI/CD, no por el `Makefile`.
 6. Genera la primera migración SQL y el `main.go`.
 7. Genera `AGENTS.md` y `ARCHITECTURE.md` (ver la última sección de
    `references/production-and-docs.md`).

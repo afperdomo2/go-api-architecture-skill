@@ -41,7 +41,31 @@ Dos endpoints separados, con semántica distinta:
   repo, o secret manager del proveedor.
 - Multi-stage build para que la imagen final no incluya el toolchain de Go.
 
-## Migraciones de base de datos en producción
+## Migraciones de base de datos
+
+`golang-migrate/migrate` es la **única fuente de verdad del esquema**, en desarrollo y en
+producción. `AutoMigrate` de GORM **no** es el camino por defecto ni en dev: solo se tolera en
+prototipos desechables, nunca commiteado (ver `stack-and-structure.md`).
+
+### Desarrollo (local)
+
+- Se aplican los **mismos** archivos SQL versionados que en producción; la DB local vive en
+  `compose.yml`.
+- Aplicar/revertir: `make migrate-up` / `make migrate-down` (envuelven los comandos de la sección
+  de producción con el `DATABASE_URL` local).
+- Crear una migración nueva:
+
+  ```bash
+  migrate create -ext sql -dir migrations -seq <nombre>
+  ```
+
+  Genera el par `NNNNNN_<nombre>.up.sql` y `NNNNNN_<nombre>.down.sql`; **ambos** deben escribirse.
+  El número es incremental y no se reutiliza.
+- Datos de desarrollo: `migrations/seed.dev.sql` aplicado con `make seed` (idempotente; no es una
+  migración versionada).
+- Nunca uses `AutoMigrate` para "arreglar" la DB local: si el esquema cambió, crea una migración.
+
+### Producción
 
 Las migraciones son un paso de **despliegue**, no de arranque de la aplicación. En
 producción se ejecutan con `golang-migrate/migrate` como SQL versionado (ver
@@ -66,7 +90,7 @@ migrate -path migrations -database "$DATABASE_URL" up
 # Revertir la última migración (rollback manual/incidente)
 migrate -path migrations -database "$DATABASE_URL" down 1
 
-# Estado actual (versión aplicada y si hay draft/migraciones sin aplicar)
+# Versión aplicada y flag dirty (migración a medio aplicar por un fallo)
 migrate -path migrations -database "$DATABASE_URL" version
 
 # Forzar una versión marcada como "sucia" por un fallo parcial
@@ -183,7 +207,11 @@ func setupDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("gorm.Open: %v", err)
 	}
-	if err := runMigrations(db); err != nil { // runner/carpeta de migraciones real del proyecto
+	sqlDB, err := db.DB() // *sql.DB subyacente que necesita golang-migrate
+	if err != nil {
+		t.Fatalf("db.DB(): %v", err)
+	}
+	if err := runMigrations(sqlDB); err != nil { // golang-migrate sobre migrations/ (mismos SQL que prod); NO AutoMigrate
 		t.Fatalf("migraciones: %v", err)
 	}
 	return db
